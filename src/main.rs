@@ -105,7 +105,12 @@ pub fn apply_transformer(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
     // TRANSFORMERS
     pub fn add_deps(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
         let deps = include_str!("../assets/deps.html");
+        let css_defaults = format!(
+            "<style>{}</style>",
+            include_str!("../assets/defaults.css")
+        );
         html_insert_str(None, "body", document, deps);
+        html_insert_str(None, "body", document, &css_defaults);
     }
     pub fn latex(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
         html_replace("pre", document, |pre_node| {
