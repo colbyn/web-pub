@@ -30,13 +30,15 @@ pub fn html_replace(
     document: &mut kuchiki::NodeRef,
     callback: impl Fn(&kuchiki::NodeRef) -> Option<kuchiki::NodeRef>,
 ) {
-    for element in document.select(selector).unwrap() {
-        let new_node = callback(element.as_node());
-        if let Some(new_node) = new_node {
-            element.as_node().insert_after(new_node);
-            element.as_node().detach();
-        }
+    let run = |node: kuchiki::NodeDataRef<kuchiki::ElementData>| -> Option<()> {
+        let new_node = callback(node.as_node())?;
+        node.as_node().insert_after(new_node);
+        node.as_node().detach();
+        Some(())
     };
+    for node in document.select(selector).unwrap().collect::<Vec<_>>() {
+        let _ = run(node);
+    }
 }
 
 
@@ -141,10 +143,14 @@ pub fn apply_transformer(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
                 .to_string();
             let src_path = PathBuf::from(src_path);
             let file_path = entry.source.parent().unwrap().join(src_path);
-            let javascript_code = code::compile_code(&file_path);
+            let (module_path, javascript_code) = code::compile_code(
+                &entry.root,
+                &file_path
+            );
             let new_node = fragment_to_html(None, &format!(
-                "\n<div id=\"{id}\"></div><script>\n{file}\nrun(document.getElementById('{id}'))\n</script>\n",
+                "\n<div id=\"{id}\"></div><script>\n{file}\nthis.{module}.default(document.getElementById('{id}'))\n</script>\n",
                 id=rand::random::<u64>(),
+                module=module_path,
                 file=javascript_code,
 
             ));
@@ -215,6 +221,7 @@ pub fn strip_parent(path: &PathBuf, reference: &PathBuf) -> PathBuf {
 
 #[derive(Debug, Clone)]
 pub struct FileEntry {
+    pub root: PathBuf,
     pub source: PathBuf,
     output: PathBuf,
 }
@@ -248,7 +255,11 @@ pub fn rebase_parents(
             x.0.clone(),
             new_parent.join(x.1)
         ))
-        .map(|(i, o)| FileEntry{source: i, output: o})
+        .map(|(i, o)| FileEntry{
+            root: paths_parent.clone(),
+            source: i,
+            output: o
+        })
         .collect::<Vec<_>>()
 }
 

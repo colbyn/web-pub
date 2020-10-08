@@ -7,4 +7,5 @@ a^2 + b^2 = c^2
 ```
 
 <script run src="assets/graph.ts"></script>
+<script run src="./graph.ts"></script>
 

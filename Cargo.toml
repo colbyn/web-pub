@@ -18,3 +18,4 @@ kuchiki = "0.8.1"
 rand = "0.7.3"
 swc = {git = "https://github.com/swc-project/swc.git", rev="75a6211"}
 swc_common = {git = "https://github.com/swc-project/swc.git", rev="75a6211", features=['tty-emitter']}
+swc_ecma_transforms = {git = "https://github.com/swc-project/swc.git", rev="75a6211"}

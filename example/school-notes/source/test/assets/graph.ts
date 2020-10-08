@@ -1,4 +1,4 @@
-function run(parent: HTMLDivElement) {
+export default function run(parent: HTMLDivElement) {
     let canvas = document.createElement("canvas");
     parent.appendChild(canvas);
     let ctx = canvas.getContext("2d");
@@ -6,3 +6,4 @@ function run(parent: HTMLDivElement) {
     ctx.lineTo(200, 100);
     ctx.stroke();
 }
+
