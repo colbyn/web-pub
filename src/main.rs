@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+pub mod code;
+
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -139,11 +141,11 @@ pub fn apply_transformer(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
                 .to_string();
             let src_path = PathBuf::from(src_path);
             let file_path = entry.source.parent().unwrap().join(src_path);
-            let file = String::from_utf8(std::fs::read(file_path).ok()?).ok()?;
+            let javascript_code = code::compile_code(&file_path);
             let new_node = fragment_to_html(None, &format!(
-                "\n<div id=\"{id}\"></div><script>\n{file}\nrun(document.getElementById('{id}'))</script>\n",
+                "\n<div id=\"{id}\"></div><script>\n{file}\nrun(document.getElementById('{id}'))\n</script>\n",
                 id=rand::random::<u64>(),
-                file=file,
+                file=javascript_code,
 
             ));
             Some(new_node)
@@ -302,6 +304,7 @@ pub fn process_markdown_files(
         std::fs::write(path.output_with_ext("html"), html_str);
     }
 }
+
 
 fn main() {
     let web_pub = WebPub::from_args();

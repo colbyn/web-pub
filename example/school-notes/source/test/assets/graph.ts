@@ -1,4 +1,4 @@
-function run(parent) {
+function run(parent: HTMLDivElement) {
     let canvas = document.createElement("canvas");
     parent.appendChild(canvas);
     let ctx = canvas.getContext("2d");

@@ -6,7 +6,7 @@ Hello world, `$a^2 + b^2 = c^2$` test.
 a^2 + b^2 = c^2
 ```
 
-<script run src="assets/graph.js"></script>
+<script run src="assets/graph.ts"></script>
 
 
 <include>
