@@ -9,7 +9,7 @@ use kuchiki::traits::*;
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// UTILS
+// HTML UTILS
 ///////////////////////////////////////////////////////////////////////////////
 
 pub fn get_text_content(
@@ -29,19 +29,9 @@ pub fn html_replace(
     callback: impl Fn(&kuchiki::NodeRef) -> Option<kuchiki::NodeRef>,
 ) {
     for element in document.select(selector).unwrap() {
-        let qual_name = html5ever::QualName::new(
-            None,
-            html5ever::Namespace::from("http://www.w3.org/1999/xhtml"),
-            html5ever::LocalName::from("div"),
-        );
-        let par = kuchiki::NodeRef::new_element(
-            qual_name,
-            None,
-        );
-
-        if let Some(new_node) = callback(element.as_node()) {
-            par.append(new_node);
-            element.as_node().insert_after(par);
+        let new_node = callback(element.as_node());
+        if let Some(new_node) = new_node {
+            element.as_node().insert_after(new_node);
             element.as_node().detach();
         }
     };
@@ -55,28 +45,43 @@ pub fn html_insert(
 ) {
     for css_match in document.select(selector).unwrap() {
         let as_node = css_match.as_node();
-        for entry in new_node.first_child().unwrap().children() {
-            as_node.append(entry);
-        }
+        as_node.append(new_node.clone());
     }
 }
 
 pub fn html_insert_str(
+    parent_tag: Option<&str>,
     selector: &str,
     document: &mut kuchiki::NodeRef,
     new_node: &str,
 ) {
-    let fragment = fragment_to_html(new_node);
+    let fragment = fragment_to_html(parent_tag, new_node);
     html_insert(selector, document, fragment);
 }
 
-pub fn fragment_to_html(value: &str) -> kuchiki::NodeRef {
+pub fn fragment_to_html(
+    parent_tag: Option<&str>,
+    value: &str
+) -> kuchiki::NodeRef {
     let qual_name = html5ever::QualName::new(
         None,
         html5ever::Namespace::from("http://www.w3.org/1999/xhtml"),
-        html5ever::LocalName::from("main"),
+        html5ever::LocalName::from(parent_tag.unwrap_or("div")),
     );
-    kuchiki::parse_fragment(qual_name,vec![]).one(value)
+    let result = kuchiki::parse_fragment(qual_name,vec![]).one(value);
+    if parent_tag.is_some() {
+        return result.first_child().unwrap();
+    }
+    result
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// WEB-PUB UTILS
+///////////////////////////////////////////////////////////////////////////////
+
+pub fn find_file(input: &PathBuf, file: &PathBuf) -> Option<String> {
+    let file = input.join(file);
+    Some(String::from_utf8(std::fs::read(file).ok()?).ok()?)
 }
 
 
@@ -92,23 +97,62 @@ struct WebPub {
     output: String,
 }
 
-pub fn apply_transformer(document: &mut kuchiki::NodeRef) {
+pub fn apply_transformer(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
     // TRANSFORMERS
-    pub fn add_deps(document: &mut kuchiki::NodeRef) {
+    pub fn add_deps(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
         let deps = include_str!("../assets/deps.html");
-        html_insert_str("body", document, deps);
+        html_insert_str(None, "body", document, deps);
     }
-    pub fn latex(document: &mut kuchiki::NodeRef) {
+    pub fn latex(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
         html_replace("pre", document, |pre_node| {
             let code_node = pre_node.first_child()?;
             let text = get_text_content(&code_node)?;
-            let new_node = fragment_to_html(&format!("<p>$${}$$</p>", text));
+            let new_node = fragment_to_html(None, &format!("<span code-block>$${}$$</span>", text));
+            Some(new_node)
+        });
+        html_replace("code", document, |node| {
+            let text = get_text_content(&node)?;
+            let text = text.trim();
+            if !(text.starts_with("$") && text.ends_with("$")) {
+                return None;
+            }
+            let text = text.strip_prefix("$")?;
+            let text = text.strip_suffix("$")?;
+            let mut mark = String::new();
+            let new_node = fragment_to_html(None, &format!("<span inline-code>\\({}\\)</span>", text));
+            Some(new_node)
+        });
+    }
+    pub fn exec_scripts(entry: &FileEntry, document: &mut kuchiki::NodeRef) {
+        html_replace("script", document, |node| {
+            let res = node.as_element()?
+                .clone()
+                .attributes
+                .borrow()
+                .get("run")
+                .is_some();
+            let src_path = node.as_element()?
+                .clone()
+                .attributes
+                .borrow()
+                .get("src")?
+                .to_string();
+            let src_path = PathBuf::from(src_path);
+            let file_path = entry.source.parent().unwrap().join(src_path);
+            let file = String::from_utf8(std::fs::read(file_path).ok()?).ok()?;
+            let new_node = fragment_to_html(None, &format!(
+                "\n<div id=\"{id}\"></div><script>\n{file}\nrun(document.getElementById('{id}'))</script>\n",
+                id=rand::random::<u64>(),
+                file=file,
+
+            ));
             Some(new_node)
         })
     }
     // APPLY
-    add_deps(document);
-    latex(document);
+    exec_scripts(entry, document);
+    add_deps(entry, document);
+    latex(entry, document);
 }
 
 
@@ -144,13 +188,17 @@ pub fn generate_html_for_markdown_file(
     let index_file = String::from_utf8(index_file).unwrap();
 
     let mut document = kuchiki::parse_html().one(index_file);
-    html_insert_str("main", &mut document, &html_str);
+    html_insert_str(None, "main", &mut document, &html_str);
 
     // TRANSFORMS
-    apply_transformer(&mut document);
+    apply_transformer(path, &mut document);
 
     // DONE
-    format!("<!DOCTYPE html>\n{}", document.to_string())
+    let doc = document
+        .to_string()
+        .replace("<html>", "")
+        .replace("</html>", "");
+    format!("<!DOCTYPE html>\n<html>\n{}\n</html>", doc)
 }
 
 

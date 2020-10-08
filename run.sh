@@ -1,0 +1,1 @@
+rm -rf example/school-notes/output && cargo run -- --input example/school-notes/source --output example/school-notes/output
