@@ -1,0 +1,13 @@
+[package]
+name = "markdown-toc"
+version = "0.2.0"
+authors = ["pbzweihander <pbzweihander@gmail.com>"]
+description = "Markdown Table of Contents generator"
+license = "MIT"
+repository = "https://github.com/pbzweihander/markdown-toc"
+readme = "README.md"
+keywords = ["markdown"]
+
+[dependencies]
+getopts = "0.2"
+percent-encoding = "2.1"

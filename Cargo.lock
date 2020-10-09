@@ -529,6 +529,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "markdown-toc"
+version = "0.2.0"
+dependencies = [
+ "getopts",
+ "percent-encoding",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1709,6 +1717,8 @@ dependencies = [
  "html5ever",
  "kuchiki",
  "markdown",
+ "markdown-toc",
+ "percent-encoding",
  "pulldown-cmark",
  "rand 0.7.3",
  "serde",
